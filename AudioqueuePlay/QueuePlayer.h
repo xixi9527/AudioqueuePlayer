@@ -12,7 +12,18 @@
 @interface QueuePlayer : NSObject
 
 
+
+@property (nonatomic, copy)void (^recordBack)(NSData *data);
 - (void)playerWithData:(NSData *)data;
+
+
+- (void)startRecord;
+- (void)startPlay;
+- (void)endRecord;
+- (void)endPlay;
+
+
+
 
 
 

@@ -17,7 +17,7 @@ AudioQueueBufferRef pBuffer[QUEUE_BUFFER_SIZE];
 
 @interface QueuePlayer ()
 {
-    AudioQueueRef mQueue;
+    AudioQueueRef recordQueue;
     
     AudioQueueRef playQueue;
     
@@ -40,8 +40,6 @@ AudioQueueBufferRef pBuffer[QUEUE_BUFFER_SIZE];
 //        [[AVAudioSession sharedInstance] setPreferredIOBufferDuration:0.1 error:nil];
         [[AVAudioSession sharedInstance] setCategory: AVAudioSessionCategoryPlayAndRecord withOptions:AVAudioSessionCategoryOptionDefaultToSpeaker error: nil];
         
-        
-        
         AudioStreamBasicDescription ASBD;
         ASBD.mBitsPerChannel = 16;
         ASBD.mBytesPerFrame = 2;
@@ -52,36 +50,17 @@ AudioQueueBufferRef pBuffer[QUEUE_BUFFER_SIZE];
         ASBD.mFramesPerPacket = 1;
         ASBD.mSampleRate = 8000;
         
-        
-        
+ 
         AudioQueueNewOutput(&ASBD, OutputCallback, (__bridge void * _Nullable)(self), nil, nil, 0, &playQueue);
         
         
-        AudioQueueNewInput(&ASBD, InputCallback,(__bridge void * _Nullable)(self), nil, nil, 0, &mQueue);
+        AudioQueueNewInput(&ASBD, InputCallback,(__bridge void * _Nullable)(self), nil, nil, 0, &recordQueue);
         
-        
-        
-        
+       
         for (int i = 0; i < QUEUE_BUFFER_SIZE; i++) {
-            AudioQueueAllocateBuffer(mQueue, MIN_SIZE_PER_FRAME, rBuffer+i);
+            AudioQueueAllocateBuffer(recordQueue, MIN_SIZE_PER_FRAME, rBuffer+i);
             AudioQueueAllocateBuffer(playQueue, MIN_SIZE_PER_FRAME, pBuffer+i);
-         
-            
         }
-        
-        
-        
-        
-        AudioQueueStart(mQueue, 0);
-        AudioQueueStart(playQueue, 0);
-        for (int i = 0; i < QUEUE_BUFFER_SIZE; i++) {
-            AudioQueueEnqueueBuffer(mQueue, rBuffer[i], 0, nil);
-        }
-        
-        
-        
-        
-        
         
         
     }
@@ -91,7 +70,25 @@ AudioQueueBufferRef pBuffer[QUEUE_BUFFER_SIZE];
 
 - (void)startRecord
 {
-    
+    for (int i = 0; i < QUEUE_BUFFER_SIZE; i++) {
+        AudioQueueEnqueueBuffer(recordQueue, rBuffer[i], 0, nil);
+    }
+    AudioQueueStart(recordQueue, 0);
+}
+
+- (void)endRecord
+{
+    AudioQueueStop(recordQueue, 0);
+}
+
+- (void)startPlay
+{
+    AudioQueueStart(playQueue, 0);
+}
+
+- (void)endPlay
+{
+    AudioQueueStop(playQueue, 0);
 }
 
 
@@ -154,9 +151,10 @@ void InputCallback(
 - (void)playWithbuffer:(AudioQueueBufferRef )buffRef
 {
     
-    
     NSData *data = [NSData dataWithBytes:buffRef->mAudioData length:buffRef->mAudioDataByteSize];
-    [self playerWithData:data];
+    if (_recordBack) {
+        _recordBack(data);
+    }
     
     
 }
