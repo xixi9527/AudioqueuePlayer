@@ -8,6 +8,7 @@
 
 #import "ViewController.h"
 #import "QueuePlayer.h"
+#import <AVFoundation/AVFoundation.h>
 QueuePlayer *myPlayer;
 
 @interface ViewController ()
@@ -19,13 +20,13 @@ QueuePlayer *myPlayer;
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do any additional setup after loading the view, typically from a nib.
-    NSMutableData *data = [NSData dataWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"test.pcm" ofType:nil]];
+    NSData *data = [NSData dataWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"test.pcm" ofType:nil]];
     NSData *data2 = [NSData dataWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"浪花一朵朵片段8k16bit单声道.pcm" ofType:nil]];
     //    _pcmPlayer = [[PCMDataPlayer alloc] init];
     //
     //    [_pcmPlayer play:data.bytes length:data.length];
     
-    data = [NSMutableData dataWithBytes:data.bytes length:6000];
+    data = [NSData dataWithBytes:data.bytes length:6000];
     data2 = [NSData dataWithBytes:data2.bytes+3000 length:80000];
     
     short * mData = malloc(160000);
@@ -50,15 +51,25 @@ QueuePlayer *myPlayer;
         mData[i] =  mixed ;
     }
     
-    myPlayer = [[QueuePlayer alloc] init];
+//    myPlayer = [[QueuePlayer alloc] init];
     
     
     
-    NSData *mixdata = [NSData dataWithBytes:mData length:MAX(data.length, data2.length)];
+    AVAudioPlayer *play = [[AVAudioPlayer alloc] initWithData:data2 error:nil];
+    play.delegate = self;
+    if ([play play])
+    {
     
-    [NSTimer scheduledTimerWithTimeInterval:0.1 repeats:NO block:^(NSTimer * _Nonnull timer) {
-        [myPlayer playerWithData:mixdata];
-    }];
+    } else {
+        NSLog(@"播放失败");
+    }
+    
+    
+//    NSData *mixdata = [NSData dataWithBytes:mData length:MAX(data.length, data2.length)];
+//    
+//    [NSTimer scheduledTimerWithTimeInterval:0.1 repeats:NO block:^(NSTimer * _Nonnull timer) {
+//        [myPlayer playerWithData:mixdata];
+//    }];
 
 }
 

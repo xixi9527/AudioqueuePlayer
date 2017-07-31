@@ -10,7 +10,8 @@
 #import <AVFoundation/AVFoundation.h>
 
 BOOL audioQueueUsed[QUEUE_BUFFER_SIZE];
-AudioQueueBufferRef mBuffer[3];
+AudioQueueBufferRef rBuffer[QUEUE_BUFFER_SIZE];
+AudioQueueBufferRef pBuffer[QUEUE_BUFFER_SIZE];
 
 
 
@@ -18,6 +19,7 @@ AudioQueueBufferRef mBuffer[3];
 {
     AudioQueueRef mQueue;
     
+    AudioQueueRef playQueue;
     
     
     NSLock *lock;
@@ -33,6 +35,13 @@ AudioQueueBufferRef mBuffer[3];
     self = [super init];
     if (self) {
         
+        
+//        [[AVAudioSession sharedInstance] setPreferredInputNumberOfChannels:1 error:nil];
+//        [[AVAudioSession sharedInstance] setPreferredIOBufferDuration:0.1 error:nil];
+        [[AVAudioSession sharedInstance] setCategory: AVAudioSessionCategoryPlayAndRecord withOptions:AVAudioSessionCategoryOptionDefaultToSpeaker error: nil];
+        
+        
+        
         AudioStreamBasicDescription ASBD;
         ASBD.mBitsPerChannel = 16;
         ASBD.mBytesPerFrame = 2;
@@ -45,23 +54,45 @@ AudioQueueBufferRef mBuffer[3];
         
         
         
-        AudioQueueNewOutput(&ASBD, OutputCallback, (__bridge void * _Nullable)(self), nil, nil, 0, &mQueue);
+        AudioQueueNewOutput(&ASBD, OutputCallback, (__bridge void * _Nullable)(self), nil, nil, 0, &playQueue);
+        
+        
+        AudioQueueNewInput(&ASBD, InputCallback,(__bridge void * _Nullable)(self), nil, nil, 0, &mQueue);
+        
+        
+        
         
         for (int i = 0; i < QUEUE_BUFFER_SIZE; i++) {
-            AudioQueueAllocateBuffer(mQueue, MIN_SIZE_PER_FRAME, &mBuffer[i]);
+            AudioQueueAllocateBuffer(mQueue, MIN_SIZE_PER_FRAME, rBuffer+i);
+            AudioQueueAllocateBuffer(playQueue, MIN_SIZE_PER_FRAME, pBuffer+i);
+         
+            
         }
         
         
+        
+        
         AudioQueueStart(mQueue, 0);
+        AudioQueueStart(playQueue, 0);
+        for (int i = 0; i < QUEUE_BUFFER_SIZE; i++) {
+            AudioQueueEnqueueBuffer(mQueue, rBuffer[i], 0, nil);
+        }
         
         
-        lock = [[NSLock alloc] init];
+        
+        
+        
+        
+        
     }
     return self;
 }
 
 
-
+- (void)startRecord
+{
+    
+}
 
 
 - (void)playerWithData:(NSData *)data
@@ -71,13 +102,13 @@ AudioQueueBufferRef mBuffer[3];
         if (audioQueueUsed[i]) {
             continue;
         }
-        theBuffer = mBuffer[i];
+        theBuffer = pBuffer[i];
         audioQueueUsed[i] = YES;
         
         
         memcpy(theBuffer->mAudioData, data.bytes, data.length);
         theBuffer->mAudioDataByteSize = data.length;
-        AudioQueueEnqueueBuffer(mQueue, theBuffer, 0, nil);
+        AudioQueueEnqueueBuffer(playQueue, theBuffer, 0, nil);
         break;
     }
     
@@ -94,7 +125,7 @@ void OutputCallback(
                  AudioQueueBufferRef     inBuffer)
 {
     for (int i = 0; i < QUEUE_BUFFER_SIZE; i++) {
-        if (inBuffer == mBuffer[i]) {
+        if (inBuffer == pBuffer[i]) {
             audioQueueUsed[i] = NO;
             
             NSLog(@"buff(%d) 使用完成",i);
@@ -102,6 +133,32 @@ void OutputCallback(
             
         }
     }
+}
+
+
+void InputCallback(
+                                void * __nullable               inUserData,
+                                AudioQueueRef                   inAQ,
+                                AudioQueueBufferRef             inBuffer,
+                                const AudioTimeStamp *          inStartTime,
+                                UInt32                          inNumberPacketDescriptions,
+                                const AudioStreamPacketDescription * __nullable inPacketDescs)
+{
+    QueuePlayer *player = (__bridge QueuePlayer *)(inUserData);
+     [player playWithbuffer:inBuffer];
+    AudioQueueEnqueueBuffer(inAQ, inBuffer, 0, nil);
+   
+}
+
+
+- (void)playWithbuffer:(AudioQueueBufferRef )buffRef
+{
+    
+    
+    NSData *data = [NSData dataWithBytes:buffRef->mAudioData length:buffRef->mAudioDataByteSize];
+    [self playerWithData:data];
+    
+    
 }
 
 @end
